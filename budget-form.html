@@ -514,7 +514,6 @@
 
   .actions .btn { flex: 1; min-width: 100px; }
 
-  #passwordOverlay { display: none !important; }
   #passwordOverlay.active { display: flex !important; }
 
   .btn-export {
@@ -1288,7 +1287,7 @@
 </div>
 
 <!-- Password Modal -->
-<div class="modal-overlay" id="passwordOverlay" style="z-index:9999">
+<div id="passwordOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;">
   <div class="modal" style="max-width:360px;padding:32px 28px;text-align:center">
     <div style="font-size:36px;margin-bottom:12px">🔐</div>
     <h3 style="font-size:18px;font-weight:700;margin-bottom:6px">أدخل كود الدخول</h3>
