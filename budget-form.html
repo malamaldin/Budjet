@@ -514,6 +514,9 @@
 
   .actions .btn { flex: 1; min-width: 100px; }
 
+  #passwordOverlay { display: none; }
+  #passwordOverlay.active { display: flex; }
+
   .btn-export {
     background: transparent;
     border: 1px solid var(--border);
@@ -1284,6 +1287,20 @@
 
 </div>
 
+<!-- Password Modal -->
+<div class="modal-overlay" id="passwordOverlay" style="z-index:9999">
+  <div class="modal" style="max-width:360px;padding:32px 28px;text-align:center">
+    <div style="font-size:36px;margin-bottom:12px">🔐</div>
+    <h3 style="font-size:18px;font-weight:700;margin-bottom:6px">أدخل كود الدخول</h3>
+    <p style="font-size:13px;color:var(--muted);font-family:'Tajawal',sans-serif;margin-bottom:20px">مطلوب للحفظ على السحابة</p>
+    <input type="password" id="passwordInput" placeholder="الكود" maxlength="20"
+      style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--text);padding:12px 16px;border-radius:12px;font-family:'Cairo',sans-serif;font-size:18px;text-align:center;letter-spacing:4px;outline:none;margin-bottom:12px"
+      onkeydown="if(event.key==='Enter') confirmPassword()">
+    <div id="passwordError" style="color:var(--expense);font-size:13px;font-family:'Tajawal',sans-serif;min-height:20px;margin-bottom:12px"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="confirmPassword()">✔ تأكيد</button>
+  </div>
+</div>
+
 <!-- Purchases Modal -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModalOnBg(event)">
   <div class="modal" id="purchasesModal">
@@ -1768,7 +1785,50 @@ function getBudgetKey() {
   return `budget_${year}_${month}`;
 }
 
-async function saveBudget() {
+let sessionPassword = null;
+let pendingSave = false;
+
+function saveBudget() {
+  if (sessionPassword) {
+    doSave(sessionPassword);
+  } else {
+    pendingSave = true;
+    document.getElementById('passwordOverlay').classList.add('active');
+    document.getElementById('passwordInput').value = '';
+    document.getElementById('passwordError').textContent = '';
+    setTimeout(() => document.getElementById('passwordInput').focus(), 100);
+  }
+}
+
+async function confirmPassword() {
+  const pwd = document.getElementById('passwordInput').value.trim();
+  if (!pwd) return;
+
+  document.getElementById('passwordError').textContent = '';
+  showToast('⏳ جاري التحقق...');
+
+  try {
+    const res = await fetch(SHEETS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'verify', password: pwd })
+    });
+    const json = await res.json();
+    if (json.result === 'ok') {
+      sessionPassword = pwd;
+      document.getElementById('passwordOverlay').classList.remove('active');
+      if (pendingSave) { pendingSave = false; doSave(pwd); }
+    } else {
+      document.getElementById('passwordError').textContent = '❌ كود غلط، حاول تاني';
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('passwordInput').focus();
+    }
+  } catch(e) {
+    document.getElementById('passwordError').textContent = '⚠️ تعذر الاتصال، حاول تاني';
+  }
+}
+
+async function doSave(pwd) {
   const month = document.getElementById('monthSelect').value;
   const year = document.getElementById('yearInput').value;
   const notes = document.getElementById('notes').value;
@@ -1781,22 +1841,23 @@ async function saveBudget() {
   const data = { month, year, notes, income: incomeData, expense: cleanExpense, exceptions: excData, allocPcts, savedAt: new Date().toISOString() };
   const key = getBudgetKey();
 
-  // Save locally always
   localStorage.setItem(key, JSON.stringify(data));
 
-  // Save to Google Sheets
   showToast('⏳ جاري الحفظ على السحابة...');
   try {
     const res = await fetch(SHEETS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ key, value: JSON.stringify(data) })
+      body: JSON.stringify({ key, value: JSON.stringify(data), password: pwd })
     });
     const json = await res.json();
     if (json.result === 'saved' || json.result === 'updated') {
       showToast(`☁️ تم الحفظ على Google Sheets — ${months[month-1]} ${year}`);
+    } else if (json.result === 'unauthorized') {
+      sessionPassword = null;
+      showToast('❌ غير مصرح بالحفظ');
     } else {
-      showToast('⚠️ الحفظ المحلي تم، رد غير متوقع من السيرفر');
+      showToast('⚠️ الحفظ المحلي تم، رد غير متوقع');
     }
   } catch(e) {
     showToast('⚠️ الحفظ المحلي تم، تحقق من الاتصال');
