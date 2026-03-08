@@ -1792,7 +1792,7 @@ function saveBudget() {
     doSave(sessionPassword);
   } else {
     pendingSave = true;
-    document.getElementById('passwordOverlay').classList.add('active');
+    document.getElementById('passwordOverlay').style.display = 'flex';
     document.getElementById('passwordInput').value = '';
     document.getElementById('passwordError').textContent = '';
     setTimeout(() => document.getElementById('passwordInput').focus(), 100);
@@ -1815,7 +1815,7 @@ async function confirmPassword() {
     const json = await res.json();
     if (json.result === 'ok') {
       sessionPassword = pwd;
-      document.getElementById('passwordOverlay').classList.remove('active');
+      document.getElementById('passwordOverlay').style.display = 'none';
       if (pendingSave) { pendingSave = false; doSave(pwd); }
     } else {
       document.getElementById('passwordError').textContent = '❌ كود غلط، حاول تاني';
