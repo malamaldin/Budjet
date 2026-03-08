@@ -1828,14 +1828,17 @@ async function loadBudget() {
   showToast('⏳ جاري تحميل البيانات...');
   try {
     const res = await fetch(`${SHEETS_URL}?key=${encodeURIComponent(key)}`);
-    const text = await res.text();
-    if (text && text !== '') {
-      const data = JSON.parse(text);
-      applyData(data);
-      // Update local cache
-      localStorage.setItem(key, text);
-      showToast(`☁️ تم التحميل من Google Sheets — ${months[month-1]} ${year}`);
-      return;
+    const json = await res.json();
+    // Apps Script wraps response in { result: "..." }
+    const raw = json.result || json;
+    if (raw && raw !== '') {
+      const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (data && (data.income || data.expense)) {
+        applyData(data);
+        localStorage.setItem(key, JSON.stringify(data));
+        showToast(`☁️ تم التحميل من Google Sheets — ${months[month-1]} ${year}`);
+        return;
+      }
     }
   } catch(e) {}
 
